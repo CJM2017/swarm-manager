@@ -111,7 +111,7 @@ class Cluster:
             dataStore["cluster"]["machines"].append(machine)
         
         # saving the json object
-        with open("/home/pi/docker_examples/cluster/cluster.json", 'w') as f:
+        with open("/home/pi/swarm-manager/cluster.json", 'w') as f:
             json.dump(dataStore, f, indent=4, sort_keys=True)
         
         return dataStore
