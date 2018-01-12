@@ -1,8 +1,24 @@
 #!/usr/bin/python
 
+# Project : Raspberry Pi 4 node cluster computer
+# Author  : Connor McCann
+# Date    : 07 Jan 2018
+# Purpose : Manage the cluster with various OS commands
+#           with hopes of integrating some MPI parallel
+#           processing functionality and threading for
+#           utility and learning purposes.
+
 import subprocess as sub 
 import json
 import sys
+
+class Image:
+    def __init__(self, props):
+        self.repo = props[0]
+        self.tag = props[1]
+        self.imageId = props[2]
+        self.created = props[3]+props[4]+props[5]
+        self.size = props[6]
 
 class Node:
     def __init__(self, nodeType, user, host, number, ip):
@@ -81,7 +97,7 @@ class Cluster:
         
         # workers
         for node in self.workers:
-            print ("Worker ---> {0} @ {1}".format(self.leader.host, self.leader.ip))
+            print ("Worker ---> {0} @ {1}".format(node.host, node.ip))
 
     def MapNetwork(self):
         # nmap process
@@ -121,12 +137,10 @@ class Cluster:
         ps = sub.Popen(["sudo", "docker", "swarm", "join-token", "manager"], stdout=sub.PIPE)
         (output, err) = ps.communicate()   
         manToken = output.split(' ')[18]
-        
         # worker
         ps = sub.Popen(["sudo", "docker", "swarm", "join-token", "worker"], stdout=sub.PIPE)
         (output, err) = ps.communicate()   
         workToken = output.split(' ')[18]
-        
         return (manToken, workToken)
     
     def sshNode(self, hostMachine, command):
@@ -146,13 +160,11 @@ class Cluster:
         # start the leader
         self.leader.InitLeader()
         (self.managerToken, self.workerToken) = self.GetTokens()
-        
         # join managers
         for manager in self.managers:
             hostMachine = "{0}@{1}".format(manager.user, manager.host)
             command = "sudo docker swarm join --token {0} {1}:2377".format(self.managerToken, self.leader.ip)
             self.sshNode(hostMachine, command)
-
         # join workers
         for worker in self.workers:
             hostMachine = "{0}@{1}".format(worker.user, worker.host)
@@ -165,17 +177,42 @@ class Cluster:
             hostMachine = "{0}@{1}".format(manager.user, manager.host)
             command = "sudo docker swarm leave --force"
             self.sshNode(hostMachine, command)
-
         # remove workers
         for worker in self.workers:
             hostMachine = "{0}@{1}".format(worker.user, worker.host)
             command = "sudo docker swarm leave --force"
             self.sshNode(hostMachine, command)
-
         # remove leader
         ps = sub.Popen(["sudo", "docker", "swarm", "leave", "--force"], stdout=sub.PIPE)
         (output, err) = ps.communicate()
     
+    def GetServices(self):
+        ps = sub.Popen(["sudo", "docker", "images"], stdout=sub.PIPE)
+        (output, err) = ps.communicate()
+        lines = output.split('\n')
+        
+        images = []
+        lines = lines [1:-1]
+        for line in lines:
+            properties = []
+            words = line.split(' ')
+            for i, word in enumerate(words):
+                if word != '' and word != None:
+                    properties.append(word)
+            if len(properties) == 7:
+                images.append(Image(properties))
+        # TODO - this should make a new class service and build meta like
+        # replicas off image and then return this to be started instead
+        return images
+
+    def StartServices(self):
+        images = self.GetServices()
+        for image in images:
+            print (image.repo)
+            if image.repo == "cjmcca17/apt":
+                pass
+                #self.launchService()
+
 def ParseCli():
     pass
 
@@ -186,11 +223,12 @@ def main(args):
     if command == "build":   
         print ("Building the cluster")
         myCluster.Build()
+        myCluster.StartServices()
     elif command == "destroy":
         print ("Destroying the cluster")
         myCluster.Destroy()
 
 
 if __name__ == '__main__':
-    main(sys.argv)
+    sys.exit(main(sys.argv))
 
