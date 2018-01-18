@@ -8,39 +8,12 @@
 #           processing functionality and threading for
 #           utility and learning purposes.
 
+from service import Service
+from image import Image
+from node import Node
 import subprocess as sub 
 import json
 import sys
-
-class Image:
-    def __init__(self, props):
-        self.repo = props[0]
-        self.tag = props[1]
-        self.imageId = props[2]
-        self.created = props[3]+props[4]+props[5]
-        self.size = props[6]
-
-class Node:
-    def __init__(self, nodeType, user, host, number, ip):
-        # enumeration
-        self.nodeTypes = ['Leader', 'Manager', 'Worker']
-        # init properties
-        if nodeType in self.nodeTypes:
-            self.nodeType = nodeType
-        self.user = user
-        self.host = host
-        self.number = number
-        self.ip = ip
-        
-    def InitLeader(self):
-        ps = sub.Popen(["sudo", "docker", "swarm", "init", "--advertise-addr", self.ip], stdout=sub.PIPE)
-        (output, err) = ps.communicate()
-    
-    def GetLocalIp(self):
-            ps = sub.Popen(["ifconfig"], stdout=sub.PIPE)
-            output = str(sub.check_output(["grep", "192.168.1.*"], stdin=ps.stdout))
-            ps.wait()
-            return output.split(' ')[11].split(':')[1]
 
 class Cluster:
     def __init__(self, machineFile=None):
@@ -186,7 +159,7 @@ class Cluster:
         ps = sub.Popen(["sudo", "docker", "swarm", "leave", "--force"], stdout=sub.PIPE)
         (output, err) = ps.communicate()
     
-    def GetServices(self):
+    def GetImages(self):
         ps = sub.Popen(["sudo", "docker", "images"], stdout=sub.PIPE)
         (output, err) = ps.communicate()
         lines = output.split('\n')
@@ -201,17 +174,21 @@ class Cluster:
                     properties.append(word)
             if len(properties) == 7:
                 images.append(Image(properties))
-        # TODO - this should make a new class service and build meta like
-        # replicas off image and then return this to be started instead
         return images
 
     def StartServices(self):
-        images = self.GetServices()
+        images = self.GetImages()
+        self.services = {} # key:image name, value: image
+        # build service structure
         for image in images:
-            print (image.repo)
-            if image.repo == "cjmcca17/apt":
-                pass
-                #self.launchService()
+            status = ""
+            status = raw_input("Do you want to start " + image.repo + " ? ")
+            self.services[image.repo] = Service(image, 1, status, 3000, 3000)
+        # start services
+        for key in self.services:
+            if self.services[key].state == "RUN":
+                #execute the run command
+                self.services[key].start()
 
 def ParseCli():
     pass
