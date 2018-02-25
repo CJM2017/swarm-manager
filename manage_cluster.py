@@ -15,27 +15,42 @@ import subprocess as sub
 import json
 import sys
 
+
 class Cluster:
+
     def __init__(self, machineFile=None):
         # json file
         if machineFile:
             self.machineFile = machineFile
         else:
             self.machineFile = self.FindMachineFile()
+        
         # properties
+        self.state = self.GetState()
         self.startTime = 0
         self.uptime = 0
         self.numMachines = 0
         self.managerToken = None
         self.workerToken = None
+        
         # nodes
         self.leader = None
         self.managers = []
         self.workers = []
+        
         # init methods
         self.ProcessMachineList()
         self.NodeStatus()
     
+    def GetState(self):
+        ps = sub.Popen(["sudo", "docker", "node", "ls"], stdout=sub.PIPE)
+        (output, err) = ps.communicate()
+        firstWord = output.split(' ')[0].strip()
+        if firstWord == "":
+            return "down"
+        elif firstWord == "ID":
+            return "up"
+
     def FindMachineFile(self):
         ps = sub.Popen(["find", "/home/pi/", "-name", "cluster.json"], stdout=sub.PIPE)
         (output, err) = ps.communicate()
@@ -110,10 +125,12 @@ class Cluster:
         ps = sub.Popen(["sudo", "docker", "swarm", "join-token", "manager"], stdout=sub.PIPE)
         (output, err) = ps.communicate()   
         manToken = output.split(' ')[18]
+        
         # worker
         ps = sub.Popen(["sudo", "docker", "swarm", "join-token", "worker"], stdout=sub.PIPE)
         (output, err) = ps.communicate()   
         workToken = output.split(' ')[18]
+        
         return (manToken, workToken)
     
     def sshNode(self, hostMachine, command):
@@ -133,16 +150,21 @@ class Cluster:
         # start the leader
         self.leader.InitLeader()
         (self.managerToken, self.workerToken) = self.GetTokens()
+        
         # join managers
         for manager in self.managers:
             hostMachine = "{0}@{1}".format(manager.user, manager.host)
             command = "sudo docker swarm join --token {0} {1}:2377".format(self.managerToken, self.leader.ip)
             self.sshNode(hostMachine, command)
+        
         # join workers
         for worker in self.workers:
             hostMachine = "{0}@{1}".format(worker.user, worker.host)
             command = "sudo docker swarm join --token {0} {1}:2377".format(self.workerToken, self.leader.ip)
             self.sshNode(hostMachine, command)
+
+        # change the state of the cluster
+        self.state = "up"
 
     def Destroy(self):
         # remove managers
@@ -150,14 +172,19 @@ class Cluster:
             hostMachine = "{0}@{1}".format(manager.user, manager.host)
             command = "sudo docker swarm leave --force"
             self.sshNode(hostMachine, command)
+        
         # remove workers
         for worker in self.workers:
             hostMachine = "{0}@{1}".format(worker.user, worker.host)
             command = "sudo docker swarm leave --force"
             self.sshNode(hostMachine, command)
+        
         # remove leader
         ps = sub.Popen(["sudo", "docker", "swarm", "leave", "--force"], stdout=sub.PIPE)
         (output, err) = ps.communicate()
+
+        # change the state
+        self.state = "down"
     
     def GetImages(self):
         ps = sub.Popen(["sudo", "docker", "images"], stdout=sub.PIPE)
@@ -177,34 +204,41 @@ class Cluster:
         return images
 
     def StartServices(self):
+        # check the state of the cluster
+        if self.state == "down":
+            return
+
         images = self.GetImages()
         self.services = {} # key:image name, value: image
+        
         # build service structure
         for image in images:
             status = ""
             status = raw_input("Do you want to start " + image.repo + " ? ")
             self.services[image.repo] = Service(image, 1, status, 3000, 3000)
+        
         # start services
+        # could use threads here to go through and start them all, asssuming
+        # docker is cool with that...
         for key in self.services:
             if self.services[key].state == "RUN":
                 #execute the run command
                 self.services[key].start()
 
-def ParseCli():
-    pass
+    def ParseCli(self, args):
+        options = { "--build"          : self.Build,
+                    "--destroy"        : self.Destroy,
+                    "--start-services" : self.StartServices
+        }
+
+        for command in args:
+            options[command]()
 
 def main(args):
     myCluster = Cluster()
-    command = args[1]
+    commands = args[1:]
+    myCluster.ParseCli(commands)
     
-    if command == "build":   
-        print ("Building the cluster")
-        myCluster.Build()
-        myCluster.StartServices()
-    elif command == "destroy":
-        print ("Destroying the cluster")
-        myCluster.Destroy()
-
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv))
