@@ -67,13 +67,13 @@ class Cluster:
     def processDataStore(self, dataStore):
         # add each node to the cluster
         for machine in dataStore["cluster"]["machines"]:
-            orderNum = machine["number"]
-            if orderNum == 0:
-                self.leader = Node("Leader", machine["user"], machine["host"], machine["number"], machine["ip"])
-            elif orderNum == 1:
-                self.managers.append(Node("Manager", machine["user"], machine["host"], machine["number"], machine["ip"]))
+            role = machine["role"]
+            if role == 'leader':
+                self.leader = Node("Leader", machine["user"], machine["host"], machine["role"], machine["ip"])
+            elif role == 'manager':
+                self.managers.append(Node("Manager", machine["user"], machine["host"], machine["role"], machine["ip"]))
             else:
-                self.workers.append(Node("Worker", machine["user"], machine["host"], machine["number"], machine["ip"]))
+                self.workers.append(Node("Worker", machine["user"], machine["host"], machine["role"], machine["ip"]))
 
     def NodeStatus(self):
         # leader
@@ -107,10 +107,12 @@ class Cluster:
             machine["user"] = "pi"
             machine["host"] = data[4]
             if machine["host"] == "PiController":
-                num = 0
+                role = "leader"
+            elif machine["host"] == "Pi01":
+                role = "manager"
             else:
-                num = int(machine["host"].split('Pi')[1])
-            machine["number"] = num
+                role = "worker"
+            machine["role"] = role
             machine["ip"] = data[5].split('(')[1].split(')')[0]
             dataStore["cluster"]["machines"].append(machine)
         
