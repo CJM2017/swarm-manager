@@ -214,7 +214,11 @@ class Cluster:
         # build service structure
         for image in images:
             status = ""
-            status = raw_input("Do you want to start " + image.repo + " ? ")
+            status = raw_input("Do you want to start " + image.repo + " [y/n]:  ").lower()
+            if (status == 'y' or status == 'yes'):
+                status = 'RUN'
+            else:
+                status = 'STOP'
             self.services[image.repo] = Service(image, 1, status, 3000, 3000)
         
         # start services
@@ -223,22 +227,32 @@ class Cluster:
         for key in self.services:
             if self.services[key].state == "RUN":
                 #execute the run command
+                print('Starting service: {0}'.format(key))
                 self.services[key].start()
+            elif self.services[key].state == 'STOP':
+                print('Stopping service: {0}'.format(key))
+                self.services[key].stop()
 
     def ParseCli(self, args):
         options = { "--build"          : self.Build,
                     "--destroy"        : self.Destroy,
-                    "--start-services" : self.StartServices
+                    "--process-services" : self.StartServices
         }
 
         for command in args:
-            options[command]()
+            try:
+                options[command]()
+            except KeyError:
+                print('Command not found ... Program Exiting')
+                               
 
 def main(args):
-    myCluster = Cluster()
-    commands = args[1:]
-    myCluster.ParseCli(commands)
-    
+    try:
+        myCluster = Cluster()
+        commands = args[1:]
+        myCluster.ParseCli(commands)
+    except KeyboardInterrupt:
+        print('\n ... Program Exiting')
 
 if __name__ == '__main__':
     sys.exit(main(sys.argv))
