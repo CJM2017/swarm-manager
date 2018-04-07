@@ -7,6 +7,12 @@
 #           with hopes of integrating some MPI parallel
 #           processing functionality and threading for
 #           utility and learning purposes.
+# TODO:
+# 1. make a method for executing subprocess commands from the leader 
+# 2. remove any weird print messaged from docker
+# 3. add a print instrcutions options for --help arg
+# 4. sudo docker node inspect self for manager ready state ...
+# 5. running services should be stopped before destroying the cluster
 
 from service import Service
 from image import Image
@@ -236,8 +242,8 @@ class Cluster:
                 self.services[key].stop()
 
     def ParseCli(self, args):
-        options = { "--build"          : self.Build,
-                    "--destroy"        : self.Destroy,
+        options = { "--build"            : self.Build,
+                    "--destroy"          : self.Destroy,
                     "--process-services" : self.StartServices
         }
 
