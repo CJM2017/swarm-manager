@@ -17,9 +17,10 @@ class Node:
         (output, err) = ps.communicate()
     
     def GetLocalIp(self):
-            ps = sub.Popen(["ifconfig"], stdout=sub.PIPE)
-            output = str(sub.check_output(["grep", "192.168.1.*"], stdin=ps.stdout))
-            ps.wait()
-            return output.split(' ')[11].split(':')[1]
+        # TODO -- the IP addr below needs not be hard coded ...
+        ps = sub.Popen(["ifconfig"], stdout=sub.PIPE)
+        output = str(sub.check_output(["grep", "192.168.1.*"], stdin=ps.stdout))
+        ps.wait()
+        return output.split(' ')[11].split(':')[1]
 
 
