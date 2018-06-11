@@ -4,6 +4,7 @@ class Node:
     def __init__(self, nodeType, user, host, number, ip):
         # enumeration
         self.nodeTypes = ['Leader', 'Manager', 'Worker']
+        
         # init properties
         if nodeType in self.nodeTypes:
             self.nodeType = nodeType

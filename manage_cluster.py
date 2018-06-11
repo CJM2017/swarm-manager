@@ -32,7 +32,7 @@ class Cluster:
             self.machineFile = self.FindMachineFile()
         
         # properties
-        self.state = self.GetState()
+        self.state = 'down'
         self.startTime = 0
         self.uptime = 0
         self.numMachines = 0
@@ -156,17 +156,20 @@ class Cluster:
  
     def Build(self):
         # start the leader
+        print('Initializing the leader')
         self.leader.InitLeader()
         (self.managerToken, self.workerToken) = self.GetTokens()
         
         # join managers
         for manager in self.managers:
+            print('Adding a manager')
             hostMachine = "{0}@{1}".format(manager.user, manager.host)
             command = "sudo docker swarm join --token {0} {1}:2377".format(self.managerToken, self.leader.ip)
             self.sshNode(hostMachine, command)
         
         # join workers
         for worker in self.workers:
+            print('Adding a worker')
             hostMachine = "{0}@{1}".format(worker.user, worker.host)
             command = "sudo docker swarm join --token {0} {1}:2377".format(self.workerToken, self.leader.ip)
             self.sshNode(hostMachine, command)
@@ -214,7 +217,8 @@ class Cluster:
     def StartServices(self):
         # check the state of the cluster
         if self.state == "down":
-            return
+            print('Building the swarm first...')
+            self.build()
 
         images = self.GetImages()
         self.services = {} # key:image name, value: image
